@@ -6,11 +6,13 @@ function Get-HardwareReadiness {
     $Result = @{
         Capable = $true
         Reason  = @()
+        CPUName = ""
     }
 
     # CPU Check
     try {
         $cpu = Get-CimInstance -Class Win32_Processor
+        $Result.CPUName = $cpu.Name.Trim()
         if ($cpu.AddressWidth -ne 64 -or $cpu.NumberOfLogicalProcessors -lt 2 -or $cpu.MaxClockSpeed -lt 1000) {
             $Result.Capable = $false
             $Result.Reason += "Processor"
@@ -89,7 +91,7 @@ $body = @{
     token  = $TrelloToken
     idList = $TrelloListID
     name   = $computerName
-    desc   = $ResultString
+    desc   = "CPU: $($check.CPUName)`nResult: $ResultString"
 }
 
 try {
