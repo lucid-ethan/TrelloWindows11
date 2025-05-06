@@ -1,4 +1,4 @@
-﻿# Check if running as administrator, if not, re-launch as admin
+# Check if running as administrator, if not, re-launch as admin
 $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = New-Object System.Security.Principal.WindowsPrincipal($identity)
 if (-not $principal.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -21,22 +21,33 @@ if ($tpm -and $tpm.SpecVersion -match "2\.0") {
 
 # Secure Boot check
 $secureBoot = Confirm-SecureBootUEFI -ErrorAction SilentlyContinue
-if ($secureBoot -eq $true) {
-    $compatibility += "Secure Boot: ✅"
-} else {
-    $compatibility += "Secure Boot: ❌"
+try {
+    $secureBoot = Confirm-SecureBootUEFI
+    if ($secureBoot) {
+        $compatibility += "Secure Boot: ✅"
+    } else {
+        $compatibility += "Secure Boot: ❌"
+    }
+} catch {
+    $compatibility += "Secure Boot: ❌ (unsupported or legacy BIOS)"
 }
 
-# CPU generation check (>= 8th gen Intel or Ryzen 2nd gen)
+
 $cpu = Get-CimInstance -ClassName Win32_Processor
 $cpuName = $cpu.Name
-if ($cpuName -match "Intel\(R\).*Core\(TM\) i[5-9]-8") {
-    $compatibility += "CPU: ✅ ($cpuName)"
-} elseif ($cpuName -match "AMD Ryzen 5 2|AMD Ryzen 7 2") {
+
+# Intel 8th gen or newer
+$intelCompatible = $cpuName -match "Intel\(R\).*Core\(TM\) i[3579]-[89][0-9]{2,}" -or $cpuName -match "Intel\(R\).*Core\(TM\) i[3579]-1[0-9]{3,}"
+
+# AMD Ryzen 2000 series or newer, but exclude 2200G and 2400G
+$amdCompatible = $cpuName -match "AMD Ryzen [3579] [23][0-9]{2,}" -and $cpuName -notmatch "2200G|2400G"
+
+if ($intelCompatible -or $amdCompatible) {
     $compatibility += "CPU: ✅ ($cpuName)"
 } else {
     $compatibility += "CPU: ❌ ($cpuName)"
 }
+
 
 # Final result
 if ($compatibility -join "`n" -match "❌") {
